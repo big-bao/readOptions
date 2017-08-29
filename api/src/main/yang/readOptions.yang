@@ -1,0 +1,9 @@
+module readOptions {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:readOptions";
+    prefix "readOptions";
+
+    revision "2017-08-25" {
+        description "Initial revision of readOptions model";
+    }
+}
