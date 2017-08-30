@@ -32,6 +32,7 @@ import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Node;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NodeId;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev130712.NetworkTopologyBuilder;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
@@ -74,16 +75,16 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
      */
     public void init() {
     	
-    	//监听路径并注册
-    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
-		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
-		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
-		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
-		          .augmentation(OvsdbTerminationPointAugmentation.class)
-		          .child(Options.class)
-		          .build();
-    	DataTreeIdentifier<Options> Options_path = new DataTreeIdentifier<>(LogicalDatastoreType.CONFIGURATION, IID);
-    	this.OptionsListener = dataBroker.registerDataTreeChangeListener(Options_path, this);									    			
+//    	//监听路径并注册
+//    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
+//		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
+//		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
+//		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
+//		          .augmentation(OvsdbTerminationPointAugmentation.class)
+//		          .child(Options.class)
+//		          .build();
+//    	DataTreeIdentifier<Options> Options_path = new DataTreeIdentifier<>(LogicalDatastoreType.CONFIGURATION, IID);
+//    	this.OptionsListener = dataBroker.registerDataTreeChangeListener(Options_path, this);									    			
 
     	
 //		//方法一：直接读到List<options>的上一层部分
@@ -146,8 +147,28 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
 //        	  System.out.println("Error during read.");
 //          }
 //      });    	
-     
-		
+//    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
+//		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
+//		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
+//		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
+//		          .augmentation(OvsdbTerminationPointAugmentation.class)
+//		          .child(Options.class)
+//		          .build();
+//    	
+//    	Options optionsData = new OptionsBuilder().setOption("peer_ip").setValue("9.9.9.9").build();
+//    	NetworkTopology abc = new NetworkTopologyBuilder().build()
+//    	readWriteRetry(3, IID, optionsData);
+//    	
+    	ConnectorAttributes nodAttributes = new ConnectorAttributes("mn1/bridge/s1", dataBroker);
+    	nodAttributes.readConnectorAttributes();
+    	List<TpAttributes> listAttributes = nodAttributes.getTpAttributes();
+    	for (TpAttributes a: listAttributes){
+    		System.out.println(a.getIpAddress());
+    		System.out.println(a.getTpId());
+    		System.out.println(a.getMacAddress());
+    		
+    	}
+    	
         LOG.info("ReadOptionsProvider Session Initiated");
     }
 
@@ -185,4 +206,33 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
 		        }
 		    }
 	}
+	
+	private void readWriteRetry(final int tries, InstanceIdentifier<Options> IID, Options data) {
+		WriteTransaction  writeTx = dataBroker.newWriteOnlyTransaction();
+        
+		
+		writeTx.put(LogicalDatastoreType.CONFIGURATION, IID, data);
+		
+		Futures.addCallback(writeTx.submit(), new FutureCallback<Void>() {
+		    @Override
+		    public void onSuccess( final Void result){
+		        LOG.info("readWriteRetry: transaction succeeded");
+		    }
+		    @Override
+		    public void onFailure(final Throwable t){
+		        LOG.error("readWriteRetry: transaction failed");
+		        if(t instanceof OptimisticLockFailedException) {
+                    if( (tries - 1) > 0 ) {
+                        LOG.debug("Concurrent modification of data - trying again");
+                        readWriteRetry(tries - 1, IID, data);
+                    }
+                    else {
+                        LOG.error("Concurrent modification of data - out of retries");
+                    }
+                }
+		    }
+		});
+		
+
+    }
 }
