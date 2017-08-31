@@ -40,6 +40,7 @@ import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.node.TerminationPoint;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.node.TerminationPointKey;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TpId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 //import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.network.topology.rev150608.TpId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.ovsdb.rev150105.OvsdbTerminationPointAugmentation;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.ovsdb.rev150105.ovsdb.port._interface.attributes.Options;
@@ -60,14 +61,17 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReadOptionsProvider.class);
 
+    private Registration listenerRegistration = null;
     private final DataBroker dataBroker;
+    private final SalFlowService salFlowService;
 
 	private ListenerRegistration<ReadOptionsProvider> OptionsListener;
 
 	//private ListenerRegistration<ReadOptionsProvider> OptionsListener;
     
-    public ReadOptionsProvider(final DataBroker dataBroker) {
+    public ReadOptionsProvider(final DataBroker dataBroker,final SalFlowService salFlowService) {
         this.dataBroker = dataBroker;
+        this.salFlowService = salFlowService;
     }
 
     /**
@@ -75,7 +79,11 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
      */
     public void init() {
     	
-//    	//监听路径并注册
+    	InitialFlowWriter initialFlowWriter = new InitialFlowWriter(salFlowService, dataBroker);
+    	listenerRegistration = initialFlowWriter.registerAsDataChangeListener(dataBroker);
+    	
+    	
+    	//监听路径并注册
 //    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
 //		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
 //		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
@@ -159,25 +167,30 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
 //    	NetworkTopology abc = new NetworkTopologyBuilder().build()
 //    	readWriteRetry(3, IID, optionsData);
 //    	
-    	ConnectorAttributes nodAttributes = new ConnectorAttributes("mn1/bridge/s1", dataBroker);
-    	nodAttributes.readConnectorAttributes();
-    	List<TpAttributes> listAttributes = nodAttributes.getTpAttributes();
-    	for (TpAttributes a: listAttributes){
-    		System.out.println(a.getIpAddress());
-    		System.out.println(a.getTpId());
-    		System.out.println(a.getMacAddress());
-    		
-    	}
+//    	ConnectorAttributes nodAttributes = new ConnectorAttributes("mn1/bridge/s1", dataBroker);
+//    	nodAttributes.readConnectorAttributes();
+//    	List<TpAttributes> listAttributes = nodAttributes.getTpAttributes();
+//    	for (TpAttributes a: listAttributes){
+//    		System.out.println(a.getIpAddress());
+//    		System.out.println(a.getTpId());
+//    		System.out.println(a.getMacAddress());
+//    		
+//    	}
     	
         LOG.info("ReadOptionsProvider Session Initiated");
     }
 
     /**
      * Method called when the blueprint container is destroyed.
+     * @throws Exception 
      * 
      */
-    public void close(){
+    public void close() throws Exception{
 
+    	if(listenerRegistration != null) {
+    		listenerRegistration.close();
+        }
+    	
         LOG.info("ReadOptionsProvider Closed");
     }
 
