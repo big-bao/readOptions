@@ -176,11 +176,16 @@ public class InitialFlowWriter implements DataChangeListener {
 					ConnectorAttributes nodAttributes = new ConnectorAttributes(tpNodeId, tpId, dataBroker);
 					nodAttributes.readConnectorAttributes();
 					String ipAddress = nodAttributes.getTpAttributes().getIpAddress();
-					
-					//构造并写流表
-					writeArpResponseFlow(nodeId, tableId, flowId,
-							createArpResponseFlow(node, macAddressStr, ipAddress));
-					LOG.debug("Added initial flows for node {} ", nodeId);
+
+					if (ipAddress != null){
+						//构造并写流表
+						writeArpResponseFlow(nodeId, tableId, flowId,
+								createArpResponseFlow(node, macAddressStr, ipAddress));
+						LOG.debug("Added initial flows for node {} ", nodeId);
+					}else{
+						LOG.debug("Not find the options -->port_ip");
+					}
+
 	            }
 	        }
             readOnlyTransaction.close();

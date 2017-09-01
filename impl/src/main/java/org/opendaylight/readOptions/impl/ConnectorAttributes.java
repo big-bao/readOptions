@@ -48,6 +48,7 @@ public class ConnectorAttributes {
 		this.nodeId = nodeId;
 		this.tpId = tpId;
 		this.dataBroker = dataBroker;
+		this.tpAttributes = new TpAttributes();
 	}
 
 	public void readConnectorAttributes(){
@@ -60,7 +61,7 @@ public class ConnectorAttributes {
 		          .build();
 
   	ReadTransaction readTx = dataBroker.newReadOnlyTransaction();
-	  ListenableFuture<Optional<OvsdbTerminationPointAugmentation>> dataFuture = readTx.read(LogicalDatastoreType.CONFIGURATION,IID);
+	  ListenableFuture<Optional<OvsdbTerminationPointAugmentation>> dataFuture = readTx.read(LogicalDatastoreType.OPERATIONAL,IID);
     Futures.addCallback(dataFuture, new FutureCallback<Optional<OvsdbTerminationPointAugmentation>>() {
         @Override
         public void onSuccess(final Optional<OvsdbTerminationPointAugmentation> result) {

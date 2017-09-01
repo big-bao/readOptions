@@ -8,13 +8,18 @@
 package org.opendaylight.readOptions.impl;
 
 import java.util.Collection;
+import java.util.List;
 
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.binding.api.DataObjectModification;
 import org.opendaylight.controller.md.sal.binding.api.DataTreeChangeListener;
 import org.opendaylight.controller.md.sal.binding.api.DataTreeIdentifier;
 import org.opendaylight.controller.md.sal.binding.api.DataTreeModification;
+import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.ovsdb.rev150105.OvsdbTerminationPointAugmentation;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.ovsdb.rev150105.ovsdb.port._interface.attributes.Options;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
@@ -37,43 +42,65 @@ public class ConnectorAttributesListener implements DataTreeChangeListener<Node>
 
 	private static final Logger LOG = LoggerFactory.getLogger(ConnectorAttributesListener.class);
 	private DataBroker dataBroker;
-	private String nodeId;
-	private ListenerRegistration<ConnectorAttributesListener> NodeListener;
-	
-	public ConnectorAttributesListener(String nodeId,DataBroker dataBroker) {
+	private final SalFlowService salFlowService;
+	private String ipAddress;
+	// private String nodeId;
+
+	public ConnectorAttributesListener(SalFlowService salFlowService, DataBroker dataBroker) {
 		// TODO Auto-generated constructor stub
 		this.dataBroker = dataBroker;
-		this.nodeId = nodeId;
-		
-		//监听路径并注册
-    	InstanceIdentifier<Node> IID = InstanceIdentifier.builder(NetworkTopology.class)
-		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
-		          .child(Node.class, new NodeKey(new NodeId(this.nodeId)))
-		          .build();
-    	DataTreeIdentifier<Node> Options_path = new DataTreeIdentifier<>(LogicalDatastoreType.CONFIGURATION, IID);
-    	this.NodeListener = this.dataBroker.registerDataTreeChangeListener(Options_path, this);
+		this.salFlowService = salFlowService;
+
+	}
+
+	public ListenerRegistration<ConnectorAttributesListener> registerAsDataChangeListener(DataBroker dataBroker) {
+		// 监听路径并注册
+		InstanceIdentifier<Node> IID = InstanceIdentifier.builder(NetworkTopology.class)
+				.child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
+				.child(Node.class).build();
+		DataTreeIdentifier<Node> Options_path = new DataTreeIdentifier<>(LogicalDatastoreType.CONFIGURATION, IID);
+		return this.dataBroker.registerDataTreeChangeListener(Options_path, this);
 	}
 
 	@Override
 	public void onDataTreeChanged(Collection<DataTreeModification<Node>> changes) {
 		// TODO Auto-generated method stub
-		for(final DataTreeModification<Node> change: changes){
-	        final DataObjectModification<Node> rootChange = change.getRootNode();
-	        Node dataBefore = rootChange.getDataBefore();
-	        Node dataAfter  = rootChange.getDataAfter();
-	        switch(rootChange.getModificationType()){
+		String inventoryNodeId = null;
+		for (final DataTreeModification<Node> change : changes) {
+			
+			final DataObjectModification<Node> rootChange = change.getRootNode();
+			Node dataBefore = rootChange.getDataBefore();
+			Node dataAfter = rootChange.getDataAfter();
 
-	            case WRITE:
-	                LOG.info("Write - before : {} after : {}", dataBefore, dataAfter);
-	                break;
-	            case SUBTREE_MODIFIED:
-	                LOG.info("Write - before : {} after : {}", dataBefore, dataAfter);
-	                break;
-	            case DELETE:
-	                LOG.info("Write - before : {} after : {}", dataBefore, dataAfter);
-	                break;
-	        }
-	    }
+			List<TerminationPoint> tPoints = dataAfter.getTerminationPoint();
+			for (TerminationPoint tPoint : tPoints) {
+				List<Options> options = tPoint.getAugmentation(OvsdbTerminationPointAugmentation.class).getOptions();
+				for (Options option : options) {
+					if (option.getOption().equals("port_ip")) {
+						ipAddress = option.getValue();
+						String strTopoNodeId = dataAfter.getNodeId().getValue();
+						String[] str = strTopoNodeId.split("/");
+						inventoryNodeId = str[2];
+					}
+				}
+			}
+		}
+		
+		InventoryConnectorAttributes inventoryConnectorAttributes = new InventoryConnectorAttributes(inventoryNodeId, dataBroker);
+		inventoryConnectorAttributes.readConnectorAttributes();
+		String macAddress = inventoryConnectorAttributes.getTpAttributes().getMacAddress();
+		
+		//构造并写流表
+		
+		
+	}
+
+	public String getIpAddress() {
+		return ipAddress;
+	}
+
+	public void setIpAddress(String ipAddress) {
+		this.ipAddress = ipAddress;
 	}
 
 }

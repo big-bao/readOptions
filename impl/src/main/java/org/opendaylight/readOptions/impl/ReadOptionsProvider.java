@@ -61,7 +61,8 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReadOptionsProvider.class);
 
-    private Registration listenerRegistration = null;
+    private Registration inventoryListenerRegistration = null;
+    private ListenerRegistration<ConnectorAttributesListener> topologyListenerRegistration = null;
     private final DataBroker dataBroker;
     private final SalFlowService salFlowService;
 
@@ -80,102 +81,11 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
     public void init() {
     	
     	InitialFlowWriter initialFlowWriter = new InitialFlowWriter(salFlowService, dataBroker);
-    	listenerRegistration = initialFlowWriter.registerAsDataChangeListener(dataBroker);
+    	inventoryListenerRegistration = initialFlowWriter.registerAsDataChangeListener(dataBroker);
     	
-    	
-    	//监听路径并注册
-//    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
-//		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
-//		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
-//		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
-//		          .augmentation(OvsdbTerminationPointAugmentation.class)
-//		          .child(Options.class)
-//		          .build();
-//    	DataTreeIdentifier<Options> Options_path = new DataTreeIdentifier<>(LogicalDatastoreType.CONFIGURATION, IID);
-//    	this.OptionsListener = dataBroker.registerDataTreeChangeListener(Options_path, this);									    			
+    	ConnectorAttributesListener listenTopologyToInstallFlow = new ConnectorAttributesListener(salFlowService, dataBroker);
+    	topologyListenerRegistration = listenTopologyToInstallFlow.registerAsDataChangeListener(dataBroker);
 
-    	
-//		//方法一：直接读到List<options>的上一层部分
-//    	InstanceIdentifier<OvsdbTerminationPointAugmentation> IID = InstanceIdentifier.builder(NetworkTopology.class)
-//		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
-//		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
-//		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
-//		          .augmentation(OvsdbTerminationPointAugmentation.class)
-//		          .build();
-//    	ReadTransaction readTx = dataBroker.newReadOnlyTransaction();
-//    	  ListenableFuture<Optional<OvsdbTerminationPointAugmentation>> dataFuture = readTx.read(LogicalDatastoreType.CONFIGURATION,IID);
-//          Futures.addCallback(dataFuture, new FutureCallback<Optional<OvsdbTerminationPointAugmentation>>() {
-//              @Override
-//              public void onSuccess(final Optional<OvsdbTerminationPointAugmentation> result) {
-//                  if(result.isPresent()) {
-//                   // data are present in data store.
-//                	  List<Options> options = result.get().getOptions();
-//                	  for (Options aa:options){
-//                		  System.out.println(aa.getOption()+ "  "+ aa.getValue());
-//                	  }
-//                	  System.out.println(result.get().toString());
-//                	  //System.out.println(result.get().getOption()+" "+result.get().getValue());
-//                  } else {
-//                      // data are not present in data store.
-//                	  System.out.println("data are not present in data store.");
-//                  }
-//              }
-//              @Override
-//              public void onFailure(final Throwable t) {
-//                  // Error during read
-//            	  System.out.println("Error during read.");
-//              }
-//          });
-
-    	
-//    	//方法二：直接读到List<Options>的 具体option为“port_ip”的一个值
-//    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
-//		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
-//		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
-//		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
-//		          .augmentation(OvsdbTerminationPointAugmentation.class)
-//		          .child(Options.class, new OptionsKey("port_ip"))
-//		          .build();
-//    	ReadTransaction readTx = dataBroker.newReadOnlyTransaction();
-//  	  ListenableFuture<Optional<Options>> dataFuture = readTx.read(LogicalDatastoreType.CONFIGURATION,IID);
-//      Futures.addCallback(dataFuture, new FutureCallback<Optional<Options>>() {
-//          @Override
-//          public void onSuccess(final Optional<Options> result) {
-//              if(result.isPresent()) {
-//               // data are present in data store.
-//            	  System.out.println(result.get().getOption()+" "+result.get().getValue());
-//              } else {
-//                  // data are not present in data store.
-//            	  System.out.println("data are not present in data store.");
-//              }
-//          }
-//          @Override
-//          public void onFailure(final Throwable t) {
-//              // Error during read
-//        	  System.out.println("Error during read.");
-//          }
-//      });    	
-//    	InstanceIdentifier<Options> IID = InstanceIdentifier.builder(NetworkTopology.class)
-//		          .child(Topology.class, new TopologyKey(new TopologyId("ovsdb:1")))
-//		          .child(Node.class, new NodeKey(new NodeId("mn1/bridge/s1")))
-//		          .child(TerminationPoint.class, new TerminationPointKey(new TpId("vxlanport1")))
-//		          .augmentation(OvsdbTerminationPointAugmentation.class)
-//		          .child(Options.class)
-//		          .build();
-//    	
-//    	Options optionsData = new OptionsBuilder().setOption("peer_ip").setValue("9.9.9.9").build();
-//    	NetworkTopology abc = new NetworkTopologyBuilder().build()
-//    	readWriteRetry(3, IID, optionsData);
-//    	
-//    	ConnectorAttributes nodAttributes = new ConnectorAttributes("mn1/bridge/s1", dataBroker);
-//    	nodAttributes.readConnectorAttributes();
-//    	List<TpAttributes> listAttributes = nodAttributes.getTpAttributes();
-//    	for (TpAttributes a: listAttributes){
-//    		System.out.println(a.getIpAddress());
-//    		System.out.println(a.getTpId());
-//    		System.out.println(a.getMacAddress());
-//    		
-//    	}
     	
         LOG.info("ReadOptionsProvider Session Initiated");
     }
@@ -187,8 +97,11 @@ public class ReadOptionsProvider implements DataTreeChangeListener<Options> {
      */
     public void close() throws Exception{
 
-    	if(listenerRegistration != null) {
-    		listenerRegistration.close();
+    	if(inventoryListenerRegistration != null) {
+    		inventoryListenerRegistration.close();
+        }
+    	if(topologyListenerRegistration != null) {
+    		topologyListenerRegistration.close();
         }
     	
         LOG.info("ReadOptionsProvider Closed");
